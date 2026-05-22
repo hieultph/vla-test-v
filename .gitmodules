@@ -1,0 +1,6 @@
+[submodule "gr00t-unitree-g1"]
+	path = gr00t-unitree-g1
+	url = https://github.com/hieultph/gr00t-unitree-g1
+[submodule "g1-pick-and-place"]
+	path = g1-pick-and-place
+	url = https://github.com/hieultph/g1-pick-and-place.git

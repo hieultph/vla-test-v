@@ -140,8 +140,8 @@ uv run python main.py
 
 For the full setup, fine-tuning, and inference workflow, see the dedicated READMEs in each component:
 
-- **[`g1-pick-and-place/README.md`](./g1-pick-and-place/README.md)** — MuJoCo simulation setup, scene configuration, closed-loop VLA inference (`vla_run.py`), teleoperation (`teleoperate.py`), grip-assist mechanics, and Hz monitoring
-- **[`gr00t-unitree-g1/README.md`](./gr00t-unitree-g1/README.md)** — GR00T N1.7 installation, dataset preprocessing, LoRA fine-tuning (`launch_finetune.py`), policy server (`run_gr00t_server.py`), open-loop evaluation, and TensorRT deployment
+- **[`g1-pick-and-place/README.md`](https://github.com/hieultph/g1-pick-and-place/blob/main/README.md)** — MuJoCo simulation setup, scene configuration, closed-loop VLA inference (`vla_run.py`), teleoperation (`teleoperate.py`), grip-assist mechanics, and Hz monitoring
+- **[`gr00t-unitree-g1/README.md`](https://github.com/hieultph/gr00t-unitree-g1/blob/main/README.md)** — GR00T N1.7 installation, dataset preprocessing, LoRA fine-tuning (`launch_finetune.py`), policy server (`run_gr00t_server.py`), open-loop evaluation, and TensorRT deployment
 
 ---
 

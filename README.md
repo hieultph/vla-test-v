@@ -373,13 +373,31 @@ The fix is to align timestamps at conversion time so action rows and video frame
 
 ## References
 
+**Models**
+
 1. **GR00T N1** — NVIDIA, *Isaac GR00T N1: An Open Foundation Model for Generalist Humanoid Robots*, 2025. [[GitHub]](https://github.com/NVIDIA/Isaac-GR00T)
-2. **Octo** — Octo Model Team, *Octo: An Open-Source Generalist Robot Policy*, arXiv:2405.12213, 2024.
-3. **OpenVLA** — Kim et al., *OpenVLA: An Open-Source Vision-Language-Action Model*, arXiv:2406.09246, 2024.
-4. **Diffusion Policy** — Chi et al., *Diffusion Policy: Visuomotor Policy Learning via Action Diffusion*, arXiv:2303.04137, RSS 2023.
-5. **RT-2** — Brohan et al., *RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control*, arXiv:2307.15818, CoRL 2023.
-6. **Unitree G1 Dex3 Dataset** — Unitree Robotics, *G1 Dex3 Object Placement Dataset*, 2025. [[HuggingFace]](https://huggingface.co/datasets/unitreerobotics/G1_Dex3_ObjectPlacement_Dataset)
-7. **Unitree XR Teleoperate** — Unitree Robotics, *XR Teleoperate for G1 data collection*, 2025. [[GitHub]](https://github.com/unitreerobotics/xr_teleoperate)
-8. **Unitree Isaac Lab** — Unitree Robotics, *Unitree Sim IsaacLab*, 2025. [[GitHub]](https://github.com/unitreerobotics/unitree_sim_isaaclab)
+2. **Octo** — Octo Model Team, *Octo: An Open-Source Generalist Robot Policy*, arXiv:2405.12213, 2024. [[Website]](https://octo-models.github.io/) [[GitHub / Fine-tune]](https://github.com/octo-models/octo)
+3. **OpenVLA** — Kim et al., *OpenVLA: An Open-Source Vision-Language-Action Model*, arXiv:2406.09246, 2024. [[GitHub]](https://github.com/openvla/openvla)
+4. **OpenVLA-OFT** — *OpenVLA-OFT: Efficient Fine-Tuning of OpenVLA*, 2025. [[Website]](https://openvla-oft.github.io/) [[arXiv 1]](https://arxiv.org/html/2512.11921v1) [[arXiv 2]](https://arxiv.org/html/2603.16044v1)
+5. **Diffusion Policy** — Chi et al., *Diffusion Policy: Visuomotor Policy Learning via Action Diffusion*, arXiv:2303.04137, RSS 2023.
+6. **RT-2** — Brohan et al., *RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control*, arXiv:2307.15818, CoRL 2023.
+7. **Psi0** — Physical Superintelligence Lab, *Psi0: Open-Source Robot Policy*, 2025. [[GitHub]](https://github.com/physical-superintelligence-lab/Psi0)
+
+**Unitree G1 Hardware & Simulation**
+
+8. **Unitree G1 Developer Guide** — Unitree Robotics, *G1 Developer Documentation*, 2025. [[Docs]](https://support.unitree.com/home/zh/G1_developer/about_G1) [[Remote Control]](https://marketing.unitree.com/article/zh/G1/Remote_Control.html)
+9. **Unitree G1 Joint Mapping (CSDN)** — Community reference for G1 joint layout and control interface, 2025. [[Article]](https://blog.csdn.net/qq_28912651/article/details/149045107)
+10. **Unitree XR Teleoperate** — Unitree Robotics, *XR Teleoperate for G1 data collection*, 2025. [[GitHub]](https://github.com/unitreerobotics/xr_teleoperate)
+11. **Unitree Isaac Lab** — Unitree Robotics, *Unitree Sim IsaacLab*, 2025. [[GitHub]](https://github.com/unitreerobotics/unitree_sim_isaaclab)
+
+**Dataset & Data Pipeline**
+
+12. **Unitree G1 Dex3 Dataset** — Unitree Robotics, *G1 Dex3 Object Placement Dataset*, 2025. [[HuggingFace]](https://huggingface.co/datasets/unitreerobotics/G1_Dex3_ObjectPlacement_Dataset)
+13. **RLDS Dataset Builder** — Pertsch et al., *RLDS Dataset Builder — converting datasets to RLDS format*, 2023. [[GitHub]](https://github.com/kpertsch/rlds_dataset_builder)
+
+**Community & Blogs**
+
+14. **Open-Weight Robot Models Overview** — RoboCloud, 2025. [[Blog]](https://robocloud-dashboard.vercel.app/learn/blog/open-weight-robot-models)
+15. **G1 Pick-and-Place Implementation Notes (CSDN)** — Community walkthrough of G1 manipulation setup, 2024. [[Article]](https://blog.csdn.net/qq_41204464/article/details/159830799)
 
 ---

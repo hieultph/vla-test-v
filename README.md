@@ -1,12 +1,12 @@
 # G1 Humanoid Pick-and-Place via Fine-Tuned Vision-Language-Action Policy
 
-Fine-tune **Isaac GR00T N1.7** on real Unitree G1 robot data to make the G1 respond to the command *"pick up all the items and put them in the yellow box"* in MuJoCo simulation, mapping camera images + language to direct joint position control.
+Fine-tune **Isaac GR00T N1.7** on real Unitree G1 robot data to make the G1 respond to the command *"Pick up the red cube and place it in the yellow target region"* in MuJoCo simulation, mapping camera images + language to direct joint position control.
 
 ---
 
 ## Demo
 
-![Demo video placeholder](https://picsum.photos/seed/demo1/800/450)
+<video src="./assets/videos/demo.mp4" controls width="100%"></video>
 
 ---
 
@@ -28,42 +28,51 @@ Object (cube) position randomized uniformly within the reachable right-side zone
 
 **Reach: 5/5 — Full task: 0/5**
 
-The arm consistently moved toward the object. Grasp failed consistently. Root cause was later diagnosed as a data bug in the dataset conversion pipeline (see [Root Cause Analysis](#root-cause-analysis--data-bug)).
-
-![Trial results placeholder](https://picsum.photos/seed/trials1/800/400)
+<!-- ![Trial results placeholder](https://picsum.photos/seed/trials1/800/400) -->
 
 ---
 
 ## Code Structure
 
 ```
-g1-challenge/
-├── g1-manipulation-challenge/          # Simulation + inference
-│   ├── run.py                          # Interactive keyboard control (explore the scene)
-│   ├── vla_run.py                      # Closed-loop VLA inference — ZMQ client, obs saving
-│   ├── teleoperate.py                  # Full joint teleoperation + episode recording (keyboard + gamepad)
-│   ├── scene.xml                       # Modified scene: single table, red+green cubes, yellow box
-│   ├── g1.xml                          # G1 robot MJCF (29 body DOF + 14 finger DOF, Dex3 hands)
-│   ├── sim/tabletop_scene.xml          # Alternate tabletop scene
-│   └── saved_obs/                      # Debug frames dumped during inference (.npz + .png)
+g1-vin/
+├── g1-pick-and-place/                                       # Simulation + inference
+│   ├── ★ vla_run.py                                        # Closed-loop VLA inference — ZMQ client, obs saving
+│   ├── ★ teleoperate.py                                    # Full joint teleoperation + episode recording (keyboard + gamepad)
+│   ├── main.py                                              # Interactive MuJoCo viewer / manual joint control
+│   ├── scene.xml                                            # Modified scene: single table, red cube, yellow box
+│   └── g1.xml                                               # G1 robot MJCF (28 DOF: 7+7 arm + 7+7 Dex3 hand)
 │
-└── Isaac-GR00T/                        # GR00T N1.7 — NVIDIA (submodule)
-    ├── scripts/lerobot_conversion/     # Dataset format conversion (LeRobot v3 → v2)
-    ├── scripts/finetune.sh             # Fine-tuning launcher (LoRA + W&B)
-    ├── examples/G1_Dex3/              # G1 modality config (cameras, action/state mapping)
-    └── gr00t/                          # Core model + ZMQ policy server
+└── gr00t-unitree-g1/                                        # GR00T N1.7 — NVIDIA (submodule)
+    ├── scripts/
+    │   ├── ★ lerobot_conversion/convert_v3_to_v2.py        # Dataset format conversion (LeRobot v3 → v2)
+    │   ├── ★ recolor_blue_to_yellow.py                     # HSV hue rotation — visual domain adaptation
+    │   └── split_dataset.py                                 # Train / test split (90 / 10)
+    ├── examples/
+    │   ├── ★ finetune.sh                                   # LoRA fine-tuning launcher — wraps launch_finetune.py
+    │   └── G1_Dex3/g1_dex3_config.py                       # G1 embodiment config (cameras, action/state mapping)
+    └── gr00t/
+        ├── ★ experiment/launch_finetune.py                 # Core fine-tuning entry point (invoked by finetune.sh)
+        ├── ★ eval/run_gr00t_server.py                      # ZMQ policy server — inference endpoint (cloud GPU)
+        ├── eval/open_loop_eval.py                           # Held-out test set evaluation (trajectory plots)
+        └── policy/server_client.py                          # ZMQ client protocol
 ```
+
+> **★ marks the files the challenge deliverables map to:**
+> - `dataset/` → `lerobot_conversion/convert_v3_to_v2.py`, `recolor_blue_to_yellow.py`, `split_dataset.py`
+> - `train/` → `finetune.sh` → `experiment/launch_finetune.py`, `G1_Dex3/g1_dex3_config.py`
+> - `inference/` → `vla_run.py` (sim client), `run_gr00t_server.py` (policy server)
 
 ### Quick Start
 
 ```bash
 # Clone with submodule
 git clone --recurse-submodules <repo-url>
-cd g1-manipulation-challenge
+cd g1-pick-and-place
 uv sync
 
 # Explore the MuJoCo scene interactively (no GPU needed)
-uv run python run.py
+uv run python main.py
 
 # Closed-loop VLA inference (requires GR00T server on cloud GPU)
 cloudflared access tcp --hostname <your-tunnel> --url 127.0.0.1:5555 &
@@ -122,54 +131,53 @@ For a 5-day sprint with a 28-DOF dexterous hand, joint positions were the practi
 
 ## Data Augmentation
 
-### Visual
+### Techniques considered but not applied
+
+A standard augmentation toolkit for this kind of real-to-sim VLA training would include:
+
+| Category | Technique | Purpose |
+|----------|-----------|---------|
+| Visual | Random crop / resize | Robustness to camera FOV shift |
+| Visual | Brightness / contrast jitter | Lighting invariance |
+| Visual | Gaussian blur, noise injection | Sensor noise robustness |
+| Visual | Random horizontal flip | Scene symmetry (with care for handedness) |
+| Spatial | Object position jitter | Generalization beyond fixed placement |
+| Spatial | Synthetic demo mixing | Coverage of edge-case grasp angles |
+| Lingual | Paraphrase expansion (LLM-generated) | Instruction diversity |
+
+These were intentionally skipped for two reasons:
+
+1. **The real dataset is already high quality.** 210 episodes of genuine G1 Dex3 manipulation with natural lighting variation, real contact dynamics, and diverse object placement cover the training distribution well. Synthetic augmentation on top of real data risks introducing artifacts that hurt rather than help.
+
+2. **Pipeline correctness first.** The priority for this sprint was to validate the full loop — data conversion → fine-tuning → ZMQ inference → sim execution — before tuning any knobs. Augmentation is an optimization step; applying it before the baseline works makes it impossible to attribute improvements or regressions to the right cause.
+
+The only augmentation actually applied was the HSV hue rotation, which was a **necessity** (not an optimization) to bridge the real-dataset blue container to the sim's yellow target.
+
+### Applied augmentation
+
+#### Visual
 - **Color domain shift**: The physical container in the real-robot dataset is **blue**. Applied HSV hue rotation to shift blue pixels to yellow across all video frames — bridging visual domain from real dataset to sim environment.
 
-![HSV color shift before/after placeholder](https://picsum.photos/seed/hsv1/800/400)
+**Before/after HSV hue rotation:** Left frame shows the original blue container from the real-robot dataset; right frame shows the same frame after shifting blue pixels to yellow, matching the MuJoCo simulation target.
+
+![HSV color shift before/after](./assets/images/ba-preprocess.png)
 
 - **Natural illumination variation**: Real-world capture inherently covers varying lighting conditions (no synthetic augmentation needed).
 
-### Lingual
+#### Lingual
 - **Language relabeling**: Replaced the generic annotation `"object_placement"` with `"pick up all the items and put them in the yellow box"` and paraphrases ("place all objects into the yellow container", "grab the items and drop them in the yellow box").
 
-### Spatial
+#### Spatial
 - Natural episode variation across 210 real-robot demonstrations covers diverse object placement positions — more effective than synthetic randomization on scripted demos.
 
 ---
 
 ## System Architecture
 
-![System architecture diagram placeholder](https://picsum.photos/seed/arch1/800/500)
+**End-to-end inference pipeline:** Local MuJoCo simulation renders stereo camera frames, packages them with proprioception and language via ZMQ, and sends them through a CloudFlare tunnel to the GR00T N1.7 policy server running on a cloud GPU.
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         Local Laptop (CPU)                           │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │                      MuJoCo Simulation                        │    │
-│  │                                                               │    │
-│  │   G1 Robot (stationary)       4 Cameras                      │    │
-│  │   28 DOF arm + hand   ──►    cam_left_high (480×640)         │    │
-│  │   data.ctrl ◄── VLA           cam_right_high (480×640)       │    │
-│  │   joint targets               cam_left_wrist                  │    │
-│  │                               cam_right_wrist                 │    │
-│  └──────────────────┬────────────────────┬────────────────────────┘   │
-│              ZMQ REQ (obs)        ZMQ REP (actions)                  │
-└─────────────────────┼────────────────────┼──────────────────────────┘
-          CloudFlare Tunnel (zero-config, no VPN)
-┌─────────────────────┼────────────────────┼──────────────────────────┐
-│       RunPod: NVIDIA RTX PRO 5000 Blackwell (48 GB VRAM)             │
-│  ┌──────────────────▼────────────────────▼────────────────────────┐  │
-│  │                  GR00T N1.7 Policy Server                       │  │
-│  │                                                                  │  │
-│  │  Inputs:                            Outputs:                     │  │
-│  │  • cam_left_high + cam_right_high   28D action chunk            │  │
-│  │  • language prompt                  (16 steps ahead)            │  │
-│  │  • 28D proprioception state                                      │  │
-│  │                                                                  │  │
-│  │  Backbone: DiT + flow-matching diffusion head                    │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────┘
-```
+![System architecture diagram](./assets/images/system-architecture.png)
+
 
 **Control loop**: Each iteration the client renders two camera frames, packages them with the current 28D joint state and language prompt, sends to the server, receives a 16-step action chunk, and writes joint positions directly to `data.ctrl`. The robot is fixed in place — no balance policy needed, the full action budget goes to arm and hand.
 
@@ -204,9 +212,11 @@ I ran both and measured:
 | **MuJoCo** | ~40 | Used — stable, headless-capable, full CPU physics |
 | Isaac Lab | ~10 | Dropped — officially needs RTX 3080+ / 8 GB VRAM; unusable at 10 FPS |
 
-Isaac Lab has a [beautiful built-in G1 pick-and-place environment](https://github.com/unitreerobotics/unitree_sim_isaaclab) — I would have used it if the hardware allowed. At 10 FPS the viewer was too laggy to interact with meaningfully. MuJoCo gave 40+ FPS on CPU.
+Isaac Lab has a [beautiful built-in G1 pick-and-place environment](./assets/images/g1-isaac-sim.png) — I would have used it if the hardware allowed. At 10 FPS the viewer was too laggy to interact with meaningfully. MuJoCo gave 40+ FPS on CPU.
 
-![Isaac Lab vs MuJoCo placeholder](https://picsum.photos/seed/sim1/800/400)
+**Side-by-side simulator comparison:** Isaac Lab (left) renders the official Unitree G1 pick-and-place environment with rich visuals but ran at ~10 FPS on the local RTX 3050. MuJoCo (right) provides a lightweight CPU-only view that sustained ~40 FPS — the deciding factor for interactive development.
+
+![Isaac Lab vs MuJoCo FPS comparison](./assets/images/isaac-sim-mujoco.png)
 
 ---
 
@@ -244,7 +254,9 @@ Training on real robot data eliminates the sim-to-real gap in the training signa
 
 **4. Sim-to-dataset alignment** — Extracted the initial joint configuration from a real episode, injected it into MuJoCo, then manually tuned the `head_cam` FOV and position to match the dataset's first training frame. This ensures what the model sees at inference closely matches the training distribution.
 
-![MuJoCo pose vs real dataset frame placeholder](https://picsum.photos/seed/pose1/800/400)
+**Visual domain alignment:** Left is a frame from the real-robot dataset; right is the MuJoCo scene after manually tuning head-cam FOV, position, and object placement to match the dataset's first training frame.
+
+![MuJoCo pose vs real dataset frame](./assets/images/setting-like-real.png)
 
 **5. Pose validation** — Verified all 28 DOF values from the real robot dataset were within the joint limits defined in `g1.xml`.
 
@@ -276,17 +288,25 @@ Training on real robot data eliminates the sim-to-real gap in the training signa
 
 ### Training Curves (W&B)
 
-![W&B loss curve 2k steps placeholder](https://picsum.photos/seed/loss2k/800/400)
+**Training loss (first 2,000 steps):** Diffusion loss and flow-matching loss both decrease monotonically, indicating the LoRA adapter is learning the task distribution without divergence.
 
-![W&B loss curve 6k steps placeholder](https://picsum.photos/seed/loss6k/800/400)
+![W&B loss curve 2k steps](./assets/images/train-loss.jpg)
 
-![W&B grad norm placeholder](https://picsum.photos/seed/grad1/800/400)
+**Training loss (extended to 6,000 steps):** Loss continues to trend downward. The extended run confirms the earlier trend is stable rather than lucky early convergence.
+
+![W&B loss curve 6k steps](./assets/images/train-loss-6k.jpg)
+
+**Gradient norm:** Gradient norms stay within a healthy range (~0.1–0.5) throughout training.
+
+![W&B grad norm](./assets/images/train-grad_norm.jpg)
 
 The 2k-step run showed clearly decreasing loss. Extended to 6k steps and monitored gradient norms to check for overfitting on the 210-episode dataset.
 
 ### Optimizer Note
 
-Switched from AdamW to `adam_torch_fused` — PyTorch's fused CUDA implementation that uses Blackwell-specific kernel optimizations. Measured **~20% faster training throughput** on the RTX PRO 5000, reducing the 6k-step run by ~40 minutes with no change to hyperparameters or convergence.
+Switched from AdamW to `adam_torch_fused` — PyTorch's fused CUDA implementation that uses Blackwell-specific kernel optimizations. Measured **~15% faster training throughput** on the RTX PRO 5000.
+
+![Adam_torch_fused](./assets/images/adamw-torch-fused.png)
 
 ---
 
@@ -294,11 +314,33 @@ Switched from AdamW to `adam_torch_fused` — PyTorch's fused CUDA implementatio
 
 ### Open-Loop Evaluation on Held-Out Test Set
 
-![Open-loop eval: predicted vs ground-truth trajectory placeholder](https://picsum.photos/seed/eval1/800/400)
+Training is **okay but not good**. The model has learned the rough structure of the task — arm motion follows the right direction and general phasing — but the predicted trajectories (orange) are noticeably unstable compared to ground truth (blue): the lines oscillate, drift, and deviate rather than tracking smoothly. The model has not converged to precise, stable imitation.
 
-Ran open-loop evaluation on the 21 held-out test episodes. The model predicted reasonable arm trajectories but with a consistent timing bias — gripper closure was triggered earlier than it should be. This was the first signal pointing to the data bug below.
+**Test Sample 0 — Episode 180:** Predicted (orange) vs. ground-truth (blue) joint trajectories. Arm motion tracks well; finger closure begins ~0.3 s earlier than labeled.
+
+![Open-loop eval sample 0](./assets/images/traj_0.jpeg)
+
+**Test Sample 1 — Episode 181:** Similar early-gripper pattern. The model closes thumb and index joints before the hand has reached the object height.
+
+![Open-loop eval sample 1](./assets/images/traj_1.jpeg)
+
+**Test Sample 2 — Episode 182:** Wrist yaw drift visible in the second half. Despite drift, the temporal offset of the grasp phase is consistent with Samples 0–1.
+
+![Open-loop eval sample 2](./assets/images/traj_2.jpeg)
+
+**Test Sample 3 — Episode 183:** Larger positional deviation in shoulder roll, but the overall action chunk shape is preserved. Grasp timing bias remains the dominant error mode.
+
+![Open-loop eval sample 3](./assets/images/traj_3.jpeg)
+
+**Test Sample 4 — Episode 184:** Best-tracking sample of the five. Even here, the finger joints cross the closure threshold ~2–3 frames ahead of the label.
+
+![Open-loop eval sample 4](./assets/images/traj_4.jpeg)
+
+> **Pattern summary across 21 held-out episodes:** The model consistently predicts reasonable arm trajectories, but gripper closure is systematically triggered earlier than the ground truth. This timing bias was the first signal pointing to the data bug below.
 
 ### Root Cause Analysis — Data Bug
+
+> **Status: Fixed.** The timestamp misalignment described below has been patched in the conversion script. This section documents the bug for reference — if you reproduce training from scratch and see early-gripper bias, this is the likely cause.
 
 During post-training debugging I found a **critical timestamp misalignment in the v3→v2 conversion script**.
 
@@ -310,41 +352,22 @@ Evidence found by comparing episode parquet and video files:
 | Episode 3 | 17.6 s | 22.0 s |
 | Consistent across multiple episodes | | |
 
-![Parquet timestamp vs video duration placeholder](https://picsum.photos/seed/bug1/800/400)
+**Timestamp mismatch evidence:** Parquet action rows end at 17.6 s while the corresponding video file runs to 22.0 s, leaving ~4.4 s of unlabeled frames at the end of every converted episode.
+
+![Parquet timestamp vs video duration](./assets/images/parquet-vs-video-timestamp.png)
 
 The conversion script was truncating the action stream while the video stayed full-length. This caused **action labels to be offset relative to video frames** — the model learned to close the gripper before the hand had reached the object. This explains the "manipulation without seeing the object" bias seen in both open-loop evaluation and closed-loop trials.
 
-This is a reproducible, well-scoped bug with a clear fix: align timestamps at conversion time, retrain. It is the primary reason grasp success is 0/5 in the current checkpoint.
-
----
-
-## Key Engineering Challenges
-
-### 1. No VR headset, no Isaac Lab — creative data sourcing
-
-Without hardware for teleoperation or GPU headroom for Isaac Lab, I sourced the best available alternative: a real-robot G1 Dex3 dataset from HuggingFace. This required a full preprocessing pipeline — format conversion, HSV color shift, language relabeling, and camera alignment. The payoff is training on genuine dexterous manipulation data with natural motion variation, not scripted joint trajectories.
-
-### 2. Cross-node inference without VPN
-
-The GPU is on RunPod; the simulator runs locally. I needed a bridge without static IPs or VPN. Solution: GR00T's built-in ZMQ server + **CloudFlare Tunnel** (`cloudflared access tcp`). The tunnel exposes a public hostname routable from behind NAT. Latency was ~50–100 ms per request — acceptable since each call returns a 16-step action chunk that executes before the next query.
-
-### 3. Finding the timestamp alignment bug
-
-The model was closing the gripper before the hand reached the object. Initial hypotheses: action scaling, normalization drift, observation pipeline errors. I added `--save-obs-dir` to dump every inference request as images and confirmed the camera frames were correct. Then I moved upstream to inspect the dataset directly — where I found the video/parquet timestamp discrepancy. The discrepancy was consistent across episodes, pointing to a systematic conversion error rather than a one-off data issue.
-
-### 4. Optimizer tuning on new GPU architecture
-
-RTX PRO 5000 Blackwell is a recently released architecture. The default optimizer config doesn't fully leverage its kernel support. Switching to `adam_torch_fused` gave a measurable ~20% throughput improvement — a low-effort, high-return change for anyone training on Blackwell.
+The fix is to align timestamps at conversion time so action rows and video frames stay in sync. If you re-run the conversion pipeline without the patch and observe systematic early-gripper behavior in open-loop evaluation, check the parquet/video timestamp discrepancy first.
 
 ---
 
 ## What I'd Do Next
 
-1. **Fix the timestamp bug** in `convert_v3_to_v2.py` and retrain — highest-leverage single change, expected to significantly improve grasp success
-2. **Add wrist cameras** (`cam_left_wrist`, `cam_right_wrist`) to the modality config — the high cameras lack fine-grained spatial resolution needed for reliable finger placement around a small cube
-3. **Collect targeted sim demos** using `teleoperate.py` (keyboard + gamepad) to supplement the dataset with the exact MuJoCo scene and task-specific language commands
-4. **Tighten camera alignment** — match `head_cam` FOV and resolution more precisely to the real dataset's camera calibration to reduce visual distribution shift at inference
-5. **Per-joint action normalization audit** — verify normalization statistics for the finger joints, which have much smaller ranges than arm joints and may be under-weighted in the diffusion loss
+1. **Add wrist cameras** (`cam_left_wrist`, `cam_right_wrist`) to the modality config — the high cameras lack fine-grained spatial resolution needed for reliable finger placement around a small cube
+2. **Collect targeted sim demos** using `teleoperate.py` (keyboard + gamepad) to supplement the dataset with the exact MuJoCo scene and task-specific language commands
+3. **Tighten camera alignment** — match `head_cam` FOV and resolution more precisely to the real dataset's camera calibration to reduce visual distribution shift at inference
+4. **Per-joint action normalization audit** — verify normalization statistics for the finger joints, which have much smaller ranges than arm joints and may be under-weighted in the diffusion loss
 
 ---
 
@@ -360,5 +383,3 @@ RTX PRO 5000 Blackwell is a recently released architecture. The default optimize
 8. **Unitree Isaac Lab** — Unitree Robotics, *Unitree Sim IsaacLab*, 2025. [[GitHub]](https://github.com/unitreerobotics/unitree_sim_isaaclab)
 
 ---
-
-*This was my first hands-on robotics project. I came in knowing none of these tools — MuJoCo physics, GR00T's architecture, LeRobot data format, ZMQ server protocols, CloudFlare tunneling, RTX Blackwell training — and built a working language-conditioned pick-and-place pipeline in 5 days. The timestamp bug I found late is the kind of subtle data quality issue that makes real robot learning genuinely hard. Diagnosing it clearly, tracing it to its source, and knowing the exact fix matters more to me than pretending the first training run worked perfectly.*

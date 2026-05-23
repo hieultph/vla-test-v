@@ -136,16 +136,12 @@ uv sync
 
 # Explore the MuJoCo scene interactively (no GPU needed)
 uv run python main.py
-
-# Closed-loop VLA inference (requires GR00T server on cloud GPU)
-cloudflared access tcp --hostname <your-tunnel> --url 127.0.0.1:5555 &
-uv run python vla_run.py \
-    --prompt "pick up all the items and put them in the yellow box" \
-    --host 127.0.0.1 --port 5555
-
-# Save every observation sent to the server for debugging
-uv run python vla_run.py --prompt "..." --save-obs-dir ./saved_obs
 ```
+
+For the full setup, fine-tuning, and inference workflow, see the dedicated READMEs in each component:
+
+- **[`g1-pick-and-place/README.md`](./g1-pick-and-place/README.md)** — MuJoCo simulation setup, scene configuration, closed-loop VLA inference (`vla_run.py`), teleoperation (`teleoperate.py`), grip-assist mechanics, and Hz monitoring
+- **[`gr00t-unitree-g1/README.md`](./gr00t-unitree-g1/README.md)** — GR00T N1.7 installation, dataset preprocessing, LoRA fine-tuning (`launch_finetune.py`), policy server (`run_gr00t_server.py`), open-loop evaluation, and TensorRT deployment
 
 ---
 

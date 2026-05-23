@@ -6,29 +6,92 @@ Fine-tune **Isaac GR00T N1.7** on real Unitree G1 robot data to make the G1 resp
 
 ## Demo
 
-<video src="./assets/videos/demo.mp4" controls width="100%"></video>
+<img src="./assets/gifs/demo.gif" width="100%" />
+
+> [Watch full video (MP4)](./assets/videos/demo.mp4)
 
 ---
 
 ## Results
 
-### 5-Trial Evaluation (Randomized Object Placement)
+### 6-Trial Evaluation (Retrained with Timestamp Fix)
 
-Command used in all trials: `"pick up all the items and put them in the yellow box"`
+Command used in all trials: `"pick up the red cube and place it in the yellow box"`
 
-Object (cube) position randomized uniformly within the reachable right-side zone of the table each trial.
+Cube z = 0.850, box z = 0.84 across all trials. Object and box positions varied to test different spatial scenarios.
 
-| Trial | Object position | Reach | Grasp | Lift | Transport | Place |
-|-------|----------------|:-----:|:-----:|:----:|:---------:|:-----:|
-| 1 | Random | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 2 | Random | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 3 | Random | ✅ | ⚠️ | ❌ | ❌ | ❌ |
-| 4 | Random | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 5 | Random | ✅ | ⚠️ | ❌ | ❌ | ❌ |
+| Trial | Cube (x, y) | Box (x, y) | Reach | Grasp | Lift | Transport | Place |
+|-------|:-----------:|:----------:|:-----:|:-----:|:----:|:---------:|:-----:|
+| 1 | (−0.20, −0.18) | (−0.22, 0.00) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 2 | (−0.16, −0.18) | (−0.22, 0.00) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 3 | (−0.20, −0.05) | (−0.22, 0.10) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 4 | (−0.16, −0.05) | (−0.22, 0.10) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 5 | (−0.25, −0.05) | (−0.22, 0.10) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 6 | (−0.16, +0.18) | (−0.22, 0.00) | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-**Reach: 5/5 — Full task: 0/5**
+**Reach: 5/6 — Full task: 3/6**
 
-<!-- ![Trial results placeholder](https://picsum.photos/seed/trials1/800/400) -->
+Failure analysis:
+- **Trial 1** — The hand approached the cube but did not close tightly enough. Without wrist cameras the model has no fine-grained visual feedback for the last few centimeters of approach — the grasp fails silently.
+- **Trial 5** — Cube at x = −0.25 is outside the arm's comfortable reach range in the training distribution. The robot attempted to extend but could not close the distance — possibly because the dataset has few center-region pickup examples: the yellow box is usually placed near the center, so the model rarely sees demonstrations that pick an object from that area.
+- **Trial 6** — Cube at y = +0.18 (left side of table). The model always leads with the right hand — reflecting the dataset bias (all 210 demonstrations are right-hand-first) — and does not switch to the left hand for a left-side target.
+
+### Trial Recordings
+
+<table align="center">
+  <tr>
+    <td align="center" width="32%">
+      <strong>Trial 1</strong><br>
+      <a href="./assets/videos/eval-1.mp4">Watch video</a><br>
+      <img src="./assets/gifs/eval-1.gif" width="100%" />
+    </td>
+    <td align="center" width="32%">
+      <strong>Trial 2</strong><br>
+      <a href="./assets/videos/eval-2.mp4">Watch video</a><br>
+      <img src="./assets/gifs/eval-2.gif" width="100%" />
+    </td>
+    <td align="center" width="32%">
+      <strong>Trial 3</strong><br>
+      <a href="./assets/videos/eval-3.mp4">Watch video</a><br>
+      <img src="./assets/gifs/eval-3.gif" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="32%">
+      <strong>Trial 4</strong><br>
+      <a href="./assets/videos/eval-4.mp4">Watch video</a><br>
+      <img src="./assets/gifs/eval-4.gif" width="100%" />
+    </td>
+    <td align="center" width="32%">
+      <strong>Trial 5</strong><br>
+      <a href="./assets/videos/eval-5.mp4">Watch video</a><br>
+      <img src="./assets/gifs/eval-5.gif" width="100%" />
+    </td>
+    <td align="center" width="32%">
+      <strong>Trial 6</strong><br>
+      <a href="./assets/videos/eval-6.mp4">Watch video</a><br>
+      <img src="./assets/gifs/eval-6.gif" width="100%" />
+    </td>
+  </tr>
+</table>
+
+### Conclusion
+
+The model achieves **3/6 full task success**, demonstrating a functional pick-and-place policy within its training distribution. Clear boundaries remain:
+
+- **Works**: right-side targets within the familiar reach envelope
+- **Fails**: targets outside the reach envelope (trial 5), left-side targets requiring a left-hand lead (trial 6), and close-range grasps where wrist-camera feedback is needed (trial 1)
+
+The remaining failures are dataset-level gaps — reach coverage, center-region pickups, and hand-assignment diversity — not model architecture issues.
+
+---
+
+## What I'd Do Next
+
+1. **Add wrist cameras** (`cam_left_wrist`, `cam_right_wrist`) to the modality config — trial 1 confirms that high cameras alone are not enough for reliable close-range grasping. The final centimeters of approach need fine-grained visual feedback that only wrist-mounted cameras can provide.
+2. **Expand reach coverage in the dataset** — trial 5 failed because x = −0.25 is outside the training distribution. Adding demonstrations (real or teleoperated sim) with objects at full arm extension would close this gap.
+3. **Add left-hand-first demonstrations** — all 210 real-robot episodes are right-hand-first. Trial 6 shows the model cannot adapt when the target is on the left side. A targeted batch of left-hand-lead episodes would directly fix this bias.
+4. **Aggregate data from multiple public pick-and-place sources** — rather than collecting new demonstrations manually, source additional datasets covering diverse object positions, hand assignments, and reach ranges, then merge and normalize them to give the model broader coverage of the cases that currently fail.
 
 ---
 
@@ -241,8 +304,9 @@ Training on real robot data eliminates the sim-to-real gap in the training signa
 | Frame rate | 30 fps |
 | Action / state space | 28D joint positions |
 | Cameras | `cam_left_high`, `cam_right_high`, `cam_left_wrist`, `cam_right_wrist` |
+| Video resolution | 480 × 640 |
 | Original language annotation | `"object_placement"` |
-| Train / test split | 189 / 21 episodes (90 / 10) |
+| Train / test split (after preprocessing) | 180 / 30 episodes, split manually |
 
 ### Preprocessing Pipeline
 
@@ -260,6 +324,8 @@ Training on real robot data eliminates the sim-to-real gap in the training signa
 
 **5. Pose validation** — Verified all 28 DOF values from the real robot dataset were within the joint limits defined in `g1.xml`.
 
+**6. Train / test split** — Manually split the 210 episodes into 180 train / 30 test using `split_dataset.py`. The original HuggingFace dataset does not include a pre-defined split.
+
 ---
 
 ## Training
@@ -271,6 +337,7 @@ Training on real robot data eliminates the sim-to-real gap in the training signa
 | Base model | GR00T N1.7 — `REAL_G1` embodiment |
 | Fine-tuning method | LoRA |
 | Cameras used | `cam_left_high`, `cam_right_high` |
+| Input resolution | 224 × 224 |
 | Max steps | 2,000 → extended to 6,000 |
 | Global batch size | 64 |
 | Learning rate | 1e-4 |
@@ -336,7 +403,7 @@ Training is **okay but not good**. The model has learned the rough structure of 
 
 ![Open-loop eval sample 4](./assets/images/traj_4.jpeg)
 
-> **Pattern summary across 21 held-out episodes:** The model consistently predicts reasonable arm trajectories, but gripper closure is systematically triggered earlier than the ground truth. This timing bias was the first signal pointing to the data bug below.
+> **Pattern summary across 30 held-out episodes:** The model consistently predicts reasonable arm trajectories, but gripper closure is systematically triggered earlier than the ground truth. This timing bias was the first signal pointing to the data bug below.
 
 ### Root Cause Analysis — Data Bug
 
@@ -359,15 +426,6 @@ Evidence found by comparing episode parquet and video files:
 The conversion script was truncating the action stream while the video stayed full-length. This caused **action labels to be offset relative to video frames** — the model learned to close the gripper before the hand had reached the object. This explains the "manipulation without seeing the object" bias seen in both open-loop evaluation and closed-loop trials.
 
 The fix is to align timestamps at conversion time so action rows and video frames stay in sync. If you re-run the conversion pipeline without the patch and observe systematic early-gripper behavior in open-loop evaluation, check the parquet/video timestamp discrepancy first.
-
----
-
-## What I'd Do Next
-
-1. **Add wrist cameras** (`cam_left_wrist`, `cam_right_wrist`) to the modality config — the high cameras lack fine-grained spatial resolution needed for reliable finger placement around a small cube
-2. **Collect targeted sim demos** using `teleoperate.py` (keyboard + gamepad) to supplement the dataset with the exact MuJoCo scene and task-specific language commands
-3. **Tighten camera alignment** — match `head_cam` FOV and resolution more precisely to the real dataset's camera calibration to reduce visual distribution shift at inference
-4. **Per-joint action normalization audit** — verify normalization statistics for the finger joints, which have much smaller ranges than arm joints and may be under-weighted in the diffusion loss
 
 ---
 

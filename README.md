@@ -29,7 +29,7 @@ Cube z = 0.850, box z = 0.84 across all trials. Object and box positions varied 
 | 5 | (−0.25, −0.05) | (−0.22, 0.10) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 6 | (−0.16, +0.18) | (−0.22, 0.00) | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-**Reach: 5/6 — Full task: 3/6**
+**Reach: 6/6 — Full task: 3/6**
 
 Failure analysis:
 - **Trial 1** — The hand approached the cube but did not close tightly enough. Without wrist cameras the model has no fine-grained visual feedback for the last few centimeters of approach — the grasp fails silently.
@@ -359,7 +359,7 @@ Training on real robot data eliminates the sim-to-real gap in the training signa
 
 ![W&B loss curve 6k steps](./assets/images/train-loss-6k.jpg)
 
-**Gradient norm:** Gradient norms stay within a healthy range (~0.1–0.5) throughout training.
+**Gradient norm:** Gradient norms stay within a healthy range throughout training.
 
 ![W&B grad norm](./assets/images/train-grad_norm.jpg)
 
@@ -379,23 +379,23 @@ Switched from AdamW to `adam_torch_fused` — PyTorch's fused CUDA implementatio
 
 Training is **okay but not good**. The model has learned the rough structure of the task — arm motion follows the right direction and general phasing — but the predicted trajectories (orange) are noticeably unstable compared to ground truth (blue): the lines oscillate, drift, and deviate rather than tracking smoothly. The model has not converged to precise, stable imitation.
 
-**Test Sample 0 — Episode 180:** Predicted (orange) vs. ground-truth (blue) joint trajectories. Arm motion tracks well; finger closure begins ~0.3 s earlier than labeled.
+**Open-loop trajectory comparison — Sample 0:** Predicted (orange) vs. ground-truth (blue) joint trajectories.
 
 ![Open-loop eval sample 0](./assets/images/traj_0.jpeg)
 
-**Test Sample 1 — Episode 181:** Similar early-gripper pattern. The model closes thumb and index joints before the hand has reached the object height.
+**Open-loop trajectory comparison — Sample 1:** Predicted (orange) vs. ground-truth (blue) joint trajectories.
 
 ![Open-loop eval sample 1](./assets/images/traj_1.jpeg)
 
-**Test Sample 2 — Episode 182:** Wrist yaw drift visible in the second half. Despite drift, the temporal offset of the grasp phase is consistent with Samples 0–1.
+**Open-loop trajectory comparison — Sample 2:** Predicted (orange) vs. ground-truth (blue) joint trajectories.
 
 ![Open-loop eval sample 2](./assets/images/traj_2.jpeg)
 
-**Test Sample 3 — Episode 183:** Larger positional deviation in shoulder roll, but the overall action chunk shape is preserved. Grasp timing bias remains the dominant error mode.
+**Open-loop trajectory comparison — Sample 3:** Predicted (orange) vs. ground-truth (blue) joint trajectories.
 
 ![Open-loop eval sample 3](./assets/images/traj_3.jpeg)
 
-**Test Sample 4 — Episode 184:** Best-tracking sample of the five. Even here, the finger joints cross the closure threshold ~2–3 frames ahead of the label.
+**Open-loop trajectory comparison — Sample 4:** Predicted (orange) vs. ground-truth (blue) joint trajectories.
 
 ![Open-loop eval sample 4](./assets/images/traj_4.jpeg)
 

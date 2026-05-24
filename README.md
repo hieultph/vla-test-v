@@ -415,11 +415,11 @@ Evidence found by comparing episode parquet and video files:
 | Episode 3 | 17.6 s | 22.0 s |
 | Consistent across multiple episodes | | |
 
-**Timestamp mismatch evidence:** Parquet action rows end at 17.6 s while the corresponding video file runs to 22.0 s, leaving ~4.4 s of unlabeled frames at the end of every converted episode.
+**Timestamp mismatch evidence:** Parquet action rows end at 17.6 s while the corresponding video file runs to 22.0 s. The video is ~4.4 s longer than the actual timestamp recorded in the parquet file.
 
 ![Parquet timestamp vs video duration](./assets/images/parquet-vs-video-timestamp.png)
 
-The conversion script was truncating the action stream while the video stayed full-length. This caused **action labels to be offset relative to video frames** — the model learned to close the gripper before the hand had reached the object. This explains the "manipulation without seeing the object" bias seen in both open-loop evaluation and closed-loop trials.
+The conversion script incorrectly **cut a segment from the previous episode's video and attached it to the current episode's video**. This caused the video to be longer than its own action stream in the parquet. Because the video contained extra frames from a prior episode, the **action labels were offset relative to the current video frames** — the model learned to close the gripper before the hand had actually reached the target object in the current episode. This explains the "manipulation without seeing the object" bias seen in both open-loop evaluation and closed-loop trials.
 
 The fix is to align timestamps at conversion time so action rows and video frames stay in sync. If you re-run the conversion pipeline without the patch and observe systematic early-gripper behavior in open-loop evaluation, check the parquet/video timestamp discrepancy first.
 

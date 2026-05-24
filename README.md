@@ -401,7 +401,9 @@ Training is **okay but not good**. The model has learned the rough structure of 
 
 > **Pattern summary across 30 held-out episodes:** The model consistently predicts reasonable arm trajectories, but gripper closure is systematically triggered earlier than the ground truth. This timing bias was the first signal pointing to the data bug below.
 
-### Root Cause Analysis — Data Bug
+### Root Cause Analysis
+
+#### 1. Data Bug — Timestamp Misalignment
 
 > **Status: Fixed.** The timestamp misalignment described below has been patched in the conversion script. This section documents the bug for reference — if you reproduce training from scratch and see early-gripper bias, this is the likely cause.
 
@@ -422,6 +424,45 @@ Evidence found by comparing episode parquet and video files:
 The conversion script incorrectly **cut a segment from the previous episode's video and attached it to the current episode's video**. This caused the video to be longer than its own action stream in the parquet. Because the video contained extra frames from a prior episode, the **action labels were offset relative to the current video frames** — the model learned to close the gripper before the hand had actually reached the target object in the current episode. This explains the "manipulation without seeing the object" bias seen in both open-loop evaluation and closed-loop trials.
 
 The fix is to align timestamps at conversion time so action rows and video frames stay in sync. If you re-run the conversion pipeline without the patch and observe systematic early-gripper behavior in open-loop evaluation, check the parquet/video timestamp discrepancy first.
+
+#### 2. MuJoCo Grip Slippage
+
+> **Status: Mitigated via Assist Grip.** The underlying MuJoCo contact dynamics remain unchanged; grip assist is the accepted workaround for simulation purposes.
+
+The red cube behaves as if it is extremely slippery in the MuJoCo simulation — even when the robot's fingers visibly close around it, the cube slips out of the hand the moment the wrist begins to rise. The exact cause is unclear; the object simply does not stay in the hand despite the grasp position appearing correct.
+
+To confirm the issue is in the physics rather than the policy, three manual-control tests were run using direct joint teleoperation — bypassing the VLA entirely so that only the simulator contact dynamics are in play:
+
+<table align="center">
+  <tr>
+    <td align="center" width="32%">
+      <strong>Manual test 1</strong><br>
+      <img src="./assets/gifs/cannot_grip_1.gif" width="100%" />
+    </td>
+    <td align="center" width="32%">
+      <strong>Manual test 2</strong><br>
+      <img src="./assets/gifs/cannot_grip_2.gif" width="100%" />
+    </td>
+    <td align="center" width="32%">
+      <strong>Manual test 3</strong><br>
+      <img src="./assets/gifs/cannot_grip_3.gif" width="100%" />
+    </td>
+  </tr>
+</table>
+
+All three attempts failed at the lift phase despite the fingers visually closing around the cube. Adjustments tried during manual testing:
+
+- Tuning `solref` / `solimp` contact parameters in `scene.xml`
+- Raising friction coefficients on both the cube geom and the finger geoms
+- Varying gripper closing speed and final joint targets via keyboard teleoperation
+
+None of these resolved the slippage. The root cause remains unknown — the object continued to slip regardless of the parameter adjustments tried.
+
+**Workaround — Assist Grip:** When the hand pose indicates a successful intended grasp (fingertips within a distance threshold of the cube), the simulation programmatically attaches the cube to the palm frame via a constraint weld. This lets evaluation focus on trajectory quality, reach accuracy, and placement precision — the parts that reflect policy performance — rather than being blocked by a simulator physics limitation. The grip itself is verified as correct (the hand position matches a real grasp); the assist simply enforces what friction cannot.
+
+This is not a novel workaround. A researcher working on the same G1 pick-and-place setup in MuJoCo independently arrived at the same solution, confirming that grip assist is an expected and accepted approach when simulating dexterous grasping without deformable-body physics: [YouTube — G1 MuJoCo pick-and-place with grip assist](https://youtu.be/Lw88uj7FiFo?si=5PQPfjFWrV7UxQHF).
+
+The assist is **visually detectable** — when triggered, the cube snaps slightly to align with the palm — but is acceptable given that the grasp intent and hand configuration are both correct at that moment.
 
 ---
 

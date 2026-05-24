@@ -98,7 +98,7 @@ The remaining failures are dataset-level gaps — reach coverage, center-region 
 ## Code Structure
 
 ```
-g1-vin/
+vla-test-v/
 ├── g1-pick-and-place/                                       # Simulation + inference
 │   ├── ★ vla_run.py                                        # Closed-loop VLA inference — ZMQ client, obs saving
 │   ├── ★ teleoperate.py                                    # Full joint teleoperation + episode recording (keyboard + gamepad)
